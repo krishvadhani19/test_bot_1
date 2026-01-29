@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Player Bot</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #000;
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+      }
+
+      video {
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <video id="videoPlayer" autoplay playsinline preload="auto">
+      <source
+        src="https://storage.googleapis.com/resemble-sampletables/resemble-dfd-meeting-integration-audio-temp-files/69a545ae-97c7-49c4-84cb-e09955688e8c.mp4"
+        type="video/mp4"
+      />
+    </video>
+
+    <script>
+      const video = document.getElementById("videoPlayer");
+      let isPlaying = false;
+      let isMuted = true;
+      let isAudioEnabled = false;
+      let isAttemptingPlayback = false;
+      let hasPlayed = false;
+
+      function logStatus(message) {
+        console.log(message);
+      }
+
+      async function attemptPlay() {
+        if (isAttemptingPlayback || isPlaying || hasPlayed) return false;
+        isAttemptingPlayback = true;
+
+        try {
+          if (isMuted) {
+            video.muted = true;
+            await video.play();
+            logStatus("Video playing (muted)");
+          } else {
+            video.muted = false;
+            await video.play();
+            logStatus("Video playing with audio");
+          }
+          isPlaying = true;
+          return true;
+        } catch (error) {
+          logStatus("Playback failed: " + error.message);
+          return false;
+        } finally {
+          isAttemptingPlayback = false;
+        }
+      }
+
+      async function enableAudio() {
+        if (isPlaying && !isAudioEnabled) {
+          try {
+            video.muted = false;
+            await video.play();
+            isAudioEnabled = true;
+            logStatus("Audio enabled after playback");
+          } catch (error) {
+            logStatus("Audio enable failed: " + error.message);
+          }
+        }
+      }
+
+      window.addEventListener("load", async () => {
+        logStatus("Page loaded");
+        await attemptPlay();
+        enableAudio();
+      });
+
+      video.addEventListener("canplay", () => {
+        logStatus("Video can play");
+        if (!hasPlayed) {
+          attemptPlay();
+        }
+      });
+
+      video.addEventListener("play", () => {
+        logStatus("Video started playing");
+        if (!isAudioEnabled) {
+          enableAudio();
+        }
+      });
+
+      video.addEventListener("ended", () => {
+        logStatus("Video ended");
+        isPlaying = false;
+        hasPlayed = true;
+      });
+
+      const audioContext = new (
+        window.AudioContext || window.webkitAudioContext
+      )();
+      document.body.addEventListener("click", () => {
+        if (audioContext.state === "suspended") {
+          audioContext.resume();
+        }
+      });
+
+      setTimeout(() => {
+        if (!isPlaying && !isAttemptingPlayback && !hasPlayed) {
+          logStatus("Retrying playback...");
+          attemptPlay();
+        } else if (!isAudioEnabled && isPlaying) {
+          logStatus("Retrying audio enable...");
+          enableAudio();
+        }
+      }, 3000);
+
+      setTimeout(() => {
+        if (!isPlaying && !hasPlayed) logStatus("Manual interaction required");
+      }, 30000);
+    </script>
+  </body>
+</html>
